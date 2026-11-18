@@ -273,7 +273,8 @@ def test_non_uniform_scale_of_rotated_columns_follows_new_x_axis():
     # column direction, so a columns-only grid stays representable.
     # A non-uniform scaling of a rotated INSERT does not reproduce the content
     # point exactly (existing InsertCoordinateSystem behaviour), so compare the
-    # grid origins only.
+    # grid origins only. The unused row spacing can not be represented and
+    # stays as stored.
     minsert = _minsert(rotation=20, spacing=(4, 5), size=(1, 2))
     matrix = Matrix44.scale(2, 3, 1)
     origins = [cell.matrix44().transform((0, 0, 0)) for cell in minsert.multi_insert()]
@@ -281,6 +282,40 @@ def test_non_uniform_scale_of_rotated_columns_follows_new_x_axis():
     minsert.transform(matrix)
     got = [cell.matrix44().transform((0, 0, 0)) for cell in minsert.multi_insert()]
     _assert_same_points(got, expected)
+    assert minsert.dxf.row_spacing == pytest.approx(4)
+
+
+def test_unused_spacing_follows_an_axis_aligned_scale():
+    # column_count is 1, so column spacing places no cells, but it is stored
+    # and should still be scaled.
+    minsert = _minsert(rotation=0, spacing=(4, 5), size=(2, 1))
+    minsert.transform(Matrix44.scale(2, 3, 1))
+    assert minsert.dxf.row_spacing == pytest.approx(12)
+    assert minsert.dxf.column_spacing == pytest.approx(10)
+
+
+def test_large_grid_rotation_does_not_raise():
+    # A fixed 1e-9 tolerance rejects the float residue of a pure rotation
+    # once the spacing reaches about 1e7.
+    angles = (1, 20, 33.3, 45, 73, 90, 123.456, 180, 270, 359)
+    for angle in angles:
+        minsert = _minsert(rotation=15, spacing=(1e7, -1e7))
+        matrix = Matrix44.z_rotate(math.radians(angle))
+        origins = [
+            cell.matrix44().transform((0, 0, 0)) for cell in minsert.multi_insert()
+        ]
+        expected = [matrix.transform(point) for point in origins]
+        minsert.transform(matrix)
+        got = [
+            cell.matrix44().transform((0, 0, 0)) for cell in minsert.multi_insert()
+        ]
+        _assert_same_points(got, expected)
+
+
+def test_large_rotated_grid_still_rejects_non_uniform_scale():
+    minsert = _minsert(rotation=20, spacing=(1e7, 1e7))
+    with pytest.raises(InsertTransformationError):
+        minsert.transform(Matrix44.scale(2, 3, 1))
 
 
 def test_transform_does_not_invent_spacing_for_a_regular_insert():
