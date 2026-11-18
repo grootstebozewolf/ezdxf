@@ -1,4 +1,6 @@
 ## Version 1.4.6 - dev
+	- BUGFIX: transform MINSERT `row_spacing` and `column_spacing` in `Insert.transform()`
+		- {{issue 1474}}
 	- BUGFIX: Fix JSON export of string values with a backslash or double quote
 		- {{pr 1433}}
 	- BUGFIX: xclip: apply the clip boundary transform to the clipping path
